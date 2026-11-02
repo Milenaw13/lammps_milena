@@ -77,6 +77,9 @@ mliap_unified_couple.cpp
 mliap_unified_couple.h
 mliap_unified_couple_kokkos.cpp
 mliap_unified_couple_kokkos.h
+# replaced by compute spin/heat/flux in November 2026
+fix_spin_heat_flux.cpp
+fix_spin_heat_flux.h
 # removed in July 2026
 pair_agni.cpp
 pair_agni.h

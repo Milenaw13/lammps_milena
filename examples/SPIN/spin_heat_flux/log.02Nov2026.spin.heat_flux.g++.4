@@ -1,0 +1,252 @@
+LAMMPS (30 Sep 2026 - Development - 898016d-modified)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+# magnon heat flow in bcc iron with compute spin/heat/flux and a
+# Green-Kubo estimate of the magnon thermal conductivity along x
+# (method of Zhou et al., Phys. Rev. B 101, 224303 (2020)), split into
+# exchange channels (pairs of atom types).  The two sites of the bcc cell
+# are given different atom types (1 = corner, 2 = body center) with the
+# same interactions, so the channels are 1-1, 1-2 and 2-2.
+# The runs are far too short for a converged value; this input only
+# shows how the commands are used.
+
+variable        t equal 300.0      # temperature (K)
+variable        p equal 200        # correlation length (samples)
+variable        s equal 5          # sample interval (steps)
+variable        d equal $p*$s      # output interval (steps)
+variable        d equal 200*$s      
+variable        d equal 200*5      
+
+units           metal
+atom_style      spin
+dimension       3
+boundary        p p p
+
+# necessary for the serial algorithm (sametag)
+atom_modify     map array
+
+lattice         bcc 2.8665
+Lattice spacing in x,y,z = 2.8665 2.8665 2.8665
+region          box block 0.0 8.0 0.0 8.0 0.0 8.0
+create_box      2 box
+Created orthogonal box = (0 0 0) to (22.932 22.932 22.932)
+  1 by 2 by 2 MPI processor grid
+create_atoms    1 box basis 2 2
+Created 1024 atoms
+  using lattice units in orthogonal box = (0 0 0) to (22.932 22.932 22.932)
+  create_atoms CPU = 0.001 seconds
+
+mass            * 55.845
+set             group all spin/atom 2.2 0.0 0.0 1.0
+Setting atom values ...
+  1024 settings made for spin/atom
+velocity        all create $(2.0*v_t) 4928459 rot yes dist gaussian loop geom
+velocity        all create 600 4928459 rot yes dist gaussian loop geom
+
+pair_style      hybrid/overlay eam/alloy spin/exchange 3.5
+pair_coeff      * * eam/alloy ../iron/Fe_Mishin2006.eam.alloy Fe Fe
+pair_coeff      * * spin/exchange exchange 3.4 0.02726 0.2171 1.841
+
+neighbor        0.1 bin
+neigh_modify    every 10 check yes delay 20
+
+# two halves along x; with periodic boundaries they share two
+# interfaces normal to x, each of area ly*lz
+
+region          left block INF 4.0 INF INF INF INF
+group           left region left
+576 atoms in group left
+group           right subtract all left
+448 atoms in group right
+
+timestep        0.0001
+
+compute         out_mag all spin
+variable        tmag equal c_out_mag[6]
+
+# heat the spins with a thermostat, the lattice equilibrates from 2t
+# (zero field; fix langevin/spin must come after fix precession/spin)
+
+fix             0 all precession/spin zeeman 0.0 0.0 0.0 1.0
+fix             1 all langevin/spin $t 0.1 21
+fix             1 all langevin/spin 300 0.1 21
+fix             2 all nve/spin lattice moving
+thermo_style    custom step temp v_tmag pe etotal
+thermo          100
+run             1000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- fix nve/spin command: https://doi.org/10.1016/j.jcp.2018.06.042
+
+@article{tranchida2018massively,
+title={Massively Parallel Symplectic Algorithm for Coupled Magnetic Spin    Dynamics and Molecular Dynamics},
+author={Tranchida, J and Plimpton, S J and Thibaudeau, P and Thompson, A P},
+journal={Journal of Computational Physics},
+volume={372},
+pages={406--425},
+year={2018},
+publisher={Elsevier}
+doi={10.1016/j.jcp.2018.06.042}
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Neighbor list info ...
+  update: every = 10 steps, delay = 20 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 5.773367
+  ghost atom cutoff = 5.773367
+  binsize = 2.8866835, bins = 8 8 8
+  2 neighbor lists, perpetual/occasional/extra = 2 0 0
+  (1) pair eam/alloy, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+  (2) pair spin/exchange, perpetual
+      attributes: full, newton on, cut 3.6
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 5.749 | 5.749 | 5.749 Mbytes
+   Step          Temp          v_tmag         PotEng         TotEng    
+         0   600.02149      0             -4496.5534     -4417.2107    
+       100   512.12666      139.42499     -4473.0332     -4405.313     
+       200   299.33738      204.34237     -4438.884      -4399.3017    
+       300   153.99705      241.89769     -4416.1279     -4395.7644    
+       400   187.31635      259.69162     -4418.7824     -4394.013     
+       500   264.79888      267.30964     -4427.8218     -4392.8066    
+       600   294.98006      264.28853     -4431.973      -4392.9669    
+       700   285.16956      284.34567     -4428.7833     -4391.0745    
+       800   269.08513      288.78521     -4426.029      -4390.447     
+       900   276.77272      288.58742     -4426.8671     -4390.2686    
+      1000   311.15474      307.89249     -4429.6659     -4388.5209    
+Loop time of 3.48708 on 4 procs for 1000 steps with 1024 atoms
+
+Performance: 2.478 ns/day, 9.686 hours/ns, 286.773 timesteps/s, 293.655 katom-step/s
+87.7% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.58309    | 0.63893    | 0.6713     |   4.2 | 18.32
+Neigh   | 0.011366   | 0.013069   | 0.014119   |   1.0 |  0.37
+Comm    | 0.28582    | 0.32119    | 0.38197    |   6.5 |  9.21
+Output  | 0.00088028 | 0.0010311  | 0.0013564  |   0.6 |  0.03
+Modify  | 2.5003     | 2.5029     | 2.5049     |   0.1 | 71.78
+Other   |            | 0.009964   |            |       |  0.29
+
+Nlocal:            256 ave         260 max         251 min
+Histogram: 1 0 0 0 0 1 1 0 0 1
+Nghost:        1391.75 ave        1398 max        1385 min
+Histogram: 1 0 1 0 0 0 0 0 1 1
+Neighs:           7919 ave        8529 max        7285 min
+Histogram: 1 0 0 1 0 0 1 0 0 1
+FullNghs:         3584 ave        3640 max        3514 min
+Histogram: 1 0 0 0 0 1 1 0 0 1
+
+Total # of neighbors = 31676
+Ave neighs/atom = 30.933594
+Neighbor list builds = 16
+Dangerous builds = 0
+
+# equilibrium run without thermostat for the Green-Kubo integral
+# kappa = V/(kB T^2) * integral <q(t) q(0)> dt, with q = Q/(ly*lz)
+# conversion from eV/(ps A K) to W/(m K): 1602.176634
+
+unfix           1
+reset_timestep  0
+
+compute         qs all spin/heat/flux right left
+variable        qx equal c_qs/(ly*lz)
+fix             QQ all ave/correlate $s $p $d v_qx type auto file Qspin.acf ave running
+fix             QQ all ave/correlate 5 $p $d v_qx type auto file Qspin.acf ave running
+fix             QQ all ave/correlate 5 200 $d v_qx type auto file Qspin.acf ave running
+fix             QQ all ave/correlate 5 200 1000 v_qx type auto file Qspin.acf ave running
+
+variable        kB equal 8.617333262e-5
+variable        scale equal 1602.176634*vol/(${kB}*$t*$t)*$s*dt
+variable        scale equal 1602.176634*vol/(8.617333262e-05*$t*$t)*$s*dt
+variable        scale equal 1602.176634*vol/(8.617333262e-05*300*$t)*$s*dt
+variable        scale equal 1602.176634*vol/(8.617333262e-05*300*300)*$s*dt
+variable        scale equal 1602.176634*vol/(8.617333262e-05*300*300)*5*dt
+variable        kx equal trap(f_QQ[3])*v_scale
+
+# all auto- and cross-correlations of the 3 channels c_qs[1..3] for
+# gk_spin_channels.py (channel shares of kappa)
+fix             QC all ave/correlate $s $p $d c_qs[1] c_qs[2] c_qs[3]                 type full file Qspin_channels.acf ave running
+fix             QC all ave/correlate 5 $p $d c_qs[1] c_qs[2] c_qs[3]                 type full file Qspin_channels.acf ave running
+fix             QC all ave/correlate 5 200 $d c_qs[1] c_qs[2] c_qs[3]                 type full file Qspin_channels.acf ave running
+fix             QC all ave/correlate 5 200 1000 c_qs[1] c_qs[2] c_qs[3]                 type full file Qspin_channels.acf ave running
+
+thermo_style    custom step temp v_tmag etotal c_qs v_qx v_kx
+thermo_modify   format float %15.8g
+thermo          $d
+thermo          1000
+run             4000
+Neighbor list info ...
+  update: every = 10 steps, delay = 20 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 5.773367
+  ghost atom cutoff = 5.773367
+  binsize = 2.8866835, bins = 8 8 8
+  3 neighbor lists, perpetual/occasional/extra = 2 1 0
+  (1) pair eam/alloy, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+  (2) pair spin/exchange, perpetual
+      attributes: full, newton on, cut 3.6
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+  (3) compute spin/heat/flux, occasional
+      attributes: full, newton on
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 6.381 | 6.381 | 6.381 Mbytes
+   Step          Temp          v_tmag         TotEng          c_qs           v_qx           v_kx     
+         0        311.15474       307.89249      -4388.5209       13.525102     0.025719153      0.41197811
+      1000        266.32688        309.6433      -4388.5209       -7.752044    -0.014741184       23.611305
+      2000        305.76693       308.23879      -4388.5209       4.6409739    0.0088252142      -10.669033
+      3000        315.44453       307.82755      -4388.5209      -23.043644    -0.043819486       9.6986804
+      4000          309.783       307.57495      -4388.5209      -4.8884657   -0.0092958414       17.167565
+Loop time of 13.0375 on 4 procs for 4000 steps with 1024 atoms
+
+Performance: 2.651 ns/day, 9.054 hours/ns, 306.806 timesteps/s, 314.170 katom-step/s
+85.7% CPU use with 4 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 2.6455     | 2.728      | 2.7982     |   3.3 | 20.92
+Neigh   | 0.05152    | 0.052228   | 0.052921   |   0.2 |  0.40
+Comm    | 1.1243     | 1.1974     | 1.2836     |   5.2 |  9.18
+Output  | 0.00048222 | 0.0073516  | 0.009657   |   4.6 |  0.06
+Modify  | 9.0126     | 9.0173     | 9.0225     |   0.1 | 69.16
+Other   |            | 0.0353     |            |       |  0.27
+
+Nlocal:            256 ave         261 max         245 min
+Histogram: 1 0 0 0 0 0 0 0 1 2
+Nghost:         1381.5 ave        1389 max        1378 min
+Histogram: 2 1 0 0 0 0 0 0 0 1
+Neighs:         7923.5 ave        8522 max        7075 min
+Histogram: 1 0 0 0 0 1 0 1 0 1
+FullNghs:         3584 ave        3654 max        3430 min
+Histogram: 1 0 0 0 0 0 0 0 1 2
+
+Total # of neighbors = 31694
+Ave neighs/atom = 30.951172
+Neighbor list builds = 65
+Dangerous builds = 0
+
+print           "magnon thermal conductivity along x: $(v_kx) W/mK (not converged)"
+magnon thermal conductivity along x: 17.167564838850001507 W/mK (not converged)
+print           "channel analysis: python3 gk_spin_channels.py Qspin_channels.acf --timestep $(dt:%g) --volume $(vol:%.10g) --area $(ly*lz:%.10g) --temperature $t --names Fe1,Fe2"
+channel analysis: python3 gk_spin_channels.py Qspin_channels.acf --timestep 0.0001 --volume 12059.40274 --area 525.876624 --temperature 300 --names Fe1,Fe2
+Total wall time: 0:00:16

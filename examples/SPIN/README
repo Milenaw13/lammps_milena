@@ -8,6 +8,14 @@ This directory contains examples and applications of the SPIN package
 - the iron, cobalt_hcp, cobalt_fcc and nickel directories provide 
   examples of spin-lattice calculations.
 
+- the exchange_spline directory provides an example of the
+  spin/exchange/spline pair style (exchange interaction from a table)
+  and tools to write and check such tables.
+
+- the spin_heat_flux directory provides an example of compute
+  spin/heat/flux: the heat flow carried by the spins between two
+  groups, used for a Green-Kubo magnon thermal conductivity.
+
 - the bfo repository provides an example of spin dynamics calculation
   performed on a fixed lattice, and applied to the multiferroic 
   material bismuth-oxide. 

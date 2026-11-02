@@ -1,0 +1,87 @@
+# magnon heat flow in bcc iron with compute spin/heat/flux and a
+# Green-Kubo estimate of the magnon thermal conductivity along x
+# (method of Zhou et al., Phys. Rev. B 101, 224303 (2020)), split into
+# exchange channels (pairs of atom types).  The two sites of the bcc cell
+# are given different atom types (1 = corner, 2 = body center) with the
+# same interactions, so the channels are 1-1, 1-2 and 2-2.
+# The runs are far too short for a converged value; this input only
+# shows how the commands are used.
+
+variable        t equal 300.0      # temperature (K)
+variable        p equal 200        # correlation length (samples)
+variable        s equal 5          # sample interval (steps)
+variable        d equal $p*$s      # output interval (steps)
+
+units           metal
+atom_style      spin
+dimension       3
+boundary        p p p
+
+# necessary for the serial algorithm (sametag)
+atom_modify     map array
+
+lattice         bcc 2.8665
+region          box block 0.0 8.0 0.0 8.0 0.0 8.0
+create_box      2 box
+create_atoms    1 box basis 2 2
+
+mass            * 55.845
+set             group all spin/atom 2.2 0.0 0.0 1.0
+velocity        all create $(2.0*v_t) 4928459 rot yes dist gaussian loop geom
+
+pair_style      hybrid/overlay eam/alloy spin/exchange 3.5
+pair_coeff      * * eam/alloy ../iron/Fe_Mishin2006.eam.alloy Fe Fe
+pair_coeff      * * spin/exchange exchange 3.4 0.02726 0.2171 1.841
+
+neighbor        0.1 bin
+neigh_modify    every 10 check yes delay 20
+
+# two halves along x; with periodic boundaries they share two
+# interfaces normal to x, each of area ly*lz
+
+region          left block INF 4.0 INF INF INF INF
+group           left region left
+group           right subtract all left
+
+timestep        0.0001
+
+compute         out_mag all spin
+variable        tmag equal c_out_mag[6]
+
+# heat the spins with a thermostat, the lattice equilibrates from 2t
+# (zero field; fix langevin/spin must come after fix precession/spin)
+
+fix             0 all precession/spin zeeman 0.0 0.0 0.0 1.0
+fix             1 all langevin/spin $t 0.1 21
+fix             2 all nve/spin lattice moving
+thermo_style    custom step temp v_tmag pe etotal
+thermo          100
+run             1000
+
+# equilibrium run without thermostat for the Green-Kubo integral
+# kappa = V/(kB T^2) * integral <q(t) q(0)> dt, with q = Q/(ly*lz)
+# conversion from eV/(ps A K) to W/(m K): 1602.176634
+
+unfix           1
+reset_timestep  0
+
+compute         qs all spin/heat/flux right left
+variable        qx equal c_qs/(ly*lz)
+fix             QQ all ave/correlate $s $p $d v_qx type auto file Qspin.acf ave running
+
+variable        kB equal 8.617333262e-5
+variable        scale equal 1602.176634*vol/(${kB}*$t*$t)*$s*dt
+variable        kx equal trap(f_QQ[3])*v_scale
+
+# all auto- and cross-correlations of the 3 channels c_qs[1..3] for
+# gk_spin_channels.py (channel shares of kappa)
+fix             QC all ave/correlate $s $p $d c_qs[1] c_qs[2] c_qs[3] &
+                type full file Qspin_channels.acf ave running
+
+thermo_style    custom step temp v_tmag etotal c_qs v_qx v_kx
+thermo_modify   format float %15.8g
+thermo          $d
+run             4000
+
+print           "magnon thermal conductivity along x: $(v_kx) W/mK (not converged)"
+print           "channel analysis: python3 gk_spin_channels.py Qspin_channels.acf --timestep $(dt:%g) --volume $(vol:%.10g) --area $(ly*lz:%.10g) --temperature $t --names Fe1,Fe2"

@@ -332,6 +332,7 @@ The individual style names on the :doc:`Commands compute <Commands_compute>` pag
 * :doc:`sph/rho/atom <compute_sph_rho_atom>` - per-atom density of Smooth-Particle Hydrodynamics atoms
 * :doc:`sph/t/atom <compute_sph_t_atom>` - per-atom internal temperature of Smooth-Particle Hydrodynamics atoms
 * :doc:`spin <compute_spin>` - magnetic quantities for a system of atoms having spins
+* :doc:`spin/heat/flux <compute_spin_heat_flux>` - heat flow carried by magnetic spins between two groups
 * :doc:`stress/atom <compute_stress_atom>` - stress tensor for each atom
 * :doc:`stress/cartesian <compute_stress_cartesian>` - stress tensor in cartesian coordinates
 * :doc:`stress/cylinder <compute_stress_curvilinear>` - stress tensor in cylindrical coordinates

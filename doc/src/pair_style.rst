@@ -397,6 +397,7 @@ accelerated styles exist.
 * :doc:`spin/dmi <pair_spin_dmi>` -
 * :doc:`spin/exchange <pair_spin_exchange>` -
 * :doc:`spin/exchange/biquadratic <pair_spin_exchange>` -
+* :doc:`spin/exchange/spline <pair_spin_exchange_spline>` - exchange interaction with tabulated spline J(r)
 * :doc:`spin/magelec <pair_spin_magelec>` -
 * :doc:`spin/neel <pair_spin_neel>` -
 * :doc:`srp <pair_srp>` -

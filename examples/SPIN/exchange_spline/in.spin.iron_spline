@@ -1,0 +1,42 @@
+# bcc iron with a tabulated (spline) exchange interaction
+# spin-lattice dynamics without thermostat: total energy is conserved
+
+units           metal
+atom_style      spin
+dimension       3
+boundary        p p p
+
+# necessary for the serial algorithm (sametag)
+atom_modify     map array
+
+lattice         bcc 2.8665
+region          box block 0.0 8.0 0.0 8.0 0.0 8.0
+create_box      1 box
+create_atoms    1 box
+
+mass            1 55.845
+set             group all spin/atom/random 31 2.2
+velocity        all create 200 4928459 rot yes dist gaussian loop geom
+
+# J(r) table written by write_exchange_table.py
+
+pair_style      hybrid/overlay eam/alloy spin/exchange/spline 5.0
+pair_coeff      * * eam/alloy ../iron/Fe_Mishin2006.eam.alloy Fe
+pair_coeff      * * spin/exchange/spline exchange 5.0 Fe_bethe_slater.table FE_BS offset yes
+
+neighbor        0.1 bin
+neigh_modify    every 10 check yes delay 20
+
+fix             1 all nve/spin lattice moving
+timestep        0.0001
+
+compute         out_mag    all spin
+variable        magnorm    equal c_out_mag[4]
+variable        emag       equal c_out_mag[5]
+variable        tmag       equal c_out_mag[6]
+
+thermo_style    custom step time v_magnorm v_tmag temp v_emag ke pe press etotal
+thermo_modify   format float %20.15g
+thermo          50
+
+run             300

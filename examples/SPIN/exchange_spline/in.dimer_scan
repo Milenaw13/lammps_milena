@@ -1,0 +1,34 @@
+# two atoms with parallel spins: scan the distance r and print
+# the exchange energy (= -J(r)) and the force on atom 2 (= dJ/dr)
+# usage: lmp -in in.dimer_scan -var table FILE -var key KEYWORD
+#            -var rc CUTOFF -var r0 START -var dr STEP -var n NPOINTS
+
+units           metal
+atom_style      spin
+atom_modify     map array
+boundary        f f f
+
+region          box block -20 20 -20 20 -20 20
+create_box      1 box
+create_atoms    1 single 0.0 0.0 0.0
+create_atoms    1 single ${r0} 0.0 0.0
+mass            1 55.845
+set             group all spin/atom 2.2 0.0 0.0 1.0
+
+pair_style      spin/exchange/spline ${rc}
+pair_coeff      * * exchange ${rc} ${table} ${key}
+
+fix             1 all nve/spin lattice moving
+variable        e2 equal pe
+variable        f2 equal fx[2]
+thermo_style    custom step pe
+print           "# r  E(eV)  Fx_atom2(eV/A)" file dimer_${key}.dat screen no
+
+variable        i loop ${n}
+label           scan
+variable        r equal ${r0}+(${i}-1)*${dr}
+set             atom 2 x ${r}
+run             0 post no
+print           "${r} $(v_e2:%.16e) $(v_f2:%.16e)" append dimer_${key}.dat screen no
+next            i
+jump            SELF scan

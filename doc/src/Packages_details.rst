@@ -3044,6 +3044,7 @@ the usual manner via MD.  Various pair, fix, and compute styles.
 * :doc:`pair_style spin/dmi <pair_spin_dmi>`
 * :doc:`pair_style spin/exchange <pair_spin_exchange>`
 * :doc:`pair_style spin/exchange/biquadratic <pair_spin_exchange>`
+* :doc:`pair_style spin/exchange/spline <pair_spin_exchange_spline>`
 * :doc:`pair_style spin/magelec <pair_spin_magelec>`
 * :doc:`pair_style spin/neel <pair_spin_neel>`
 * :doc:`fix nve/spin <fix_nve_spin>`

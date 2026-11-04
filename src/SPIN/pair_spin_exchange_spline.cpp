@@ -61,7 +61,6 @@ PairSpinExchangeSpline::PairSpinExchangeSpline(LAMMPS *lmp) :
     PairSpin(lmp), tabindex(nullptr), cut_spin_exchange(nullptr)
 {
   e_offset = 0;
-  nextrapolate = 0;
   restartinfo = 0;
 }
 
@@ -130,6 +129,8 @@ void PairSpinExchangeSpline::coeff(int narg, char **arg)
   Table &tb = tables.back();
   if (comm->me == 0) read_table(tb, arg[4], arg[5], rc);
   bcast_table(tb);
+  tb.keyword = arg[5];
+  tb.nbelow = 0;
   const int itable = (int) tables.size() - 1;
 
   int count = 0;
@@ -315,18 +316,33 @@ void *PairSpinExchangeSpline::extract(const char *str, int &dim)
 }
 
 /* ----------------------------------------------------------------------
-   report pairs that came closer than the start of their table
+   report, for each table, the pair distances that were below the start
+   of the table during the run (J(r) was extrapolated linearly there)
+   each pair is visited twice in the full neighbor list, so divide by 2
 ------------------------------------------------------------------------- */
 
 void PairSpinExchangeSpline::finish()
 {
-  bigint all = 0;
-  MPI_Allreduce(&nextrapolate, &all, 1, MPI_LMP_BIGINT, MPI_SUM, world);
-  if ((comm->me == 0) && (all > 0))
+  const int ntables = tables.size();
+  std::vector<bigint> local(ntables), all(ntables);
+  for (int t = 0; t < ntables; t++) local[t] = tables[t].nbelow;
+  if (ntables > 0)
+    MPI_Allreduce(local.data(), all.data(), ntables, MPI_LMP_BIGINT, MPI_SUM, world);
+
+  for (int t = 0; t < ntables; t++) {
+    tables[t].nbelow = 0;
+    if ((comm->me != 0) || (all[t] == 0)) continue;
+
+    std::string types;
+    for (int i = 1; i <= atom->ntypes; i++)
+      for (int j = i; j <= atom->ntypes; j++)
+        if (setflag[i][j] && (tabindex[i][j] == t)) types += fmt::format(" {}-{}", i, j);
+
     error->warning(FLERR,
-                   "Pair spin/exchange/spline: {} pair distances were below the start of "
-                   "the exchange table; J(r) was extrapolated linearly", all);
-  nextrapolate = 0;
+                   "Pair spin/exchange/spline: table {} (types{}): {} pair distances below "
+                   "the table start r = {} Angstrom during this run; J(r) was extrapolated "
+                   "linearly", tables[t].keyword, types, all[t] / 2, tables[t].r[0]);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -342,7 +358,6 @@ void PairSpinExchangeSpline::exchange_J(int itype, int jtype, double r, double &
   const double *x = tb.r.data();
 
   if (r < x[0]) {
-    nextrapolate++;
     dJ = tb.dJlo;
     J = tb.J[0] + dJ * (r - x[0]);
     return;
@@ -457,6 +472,11 @@ void PairSpinExchangeSpline::compute(int eflag, int vflag)
       eij[2] = -inorm * delz;
 
       exchange_J(itype, jtype, r, Jex, dJex);
+
+      // count distances below the table start (only here, not in compute_single_pair)
+
+      Table &tb = tables[tabindex[itype][jtype]];
+      if (r < tb.r[0]) tb.nbelow++;
 
       // precession: fm_i += J/hbar s_j
 

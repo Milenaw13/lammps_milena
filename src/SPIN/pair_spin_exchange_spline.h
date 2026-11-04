@@ -53,13 +53,14 @@ class PairSpinExchangeSpline : public PairSpin {
     double invdr;              // 1/spacing, used for equally spaced tables
     double dJlo;               // dJ/dr at r[0], used to extrapolate below r[0]
     int uniform;               // 1 if points are equally spaced
+    std::string keyword;       // section keyword in the table file
+    bigint nbelow;             // pair distances below r[0] seen by compute()
   };
 
   int e_offset;                    // apply energy offset
   std::vector<Table> tables;       // all tables read by pair_coeff
   int **tabindex;                  // table index for each type pair
   double **cut_spin_exchange;      // cutoff distance exchange
-  bigint nextrapolate;             // count of pairs closer than the table start
 
   void allocate() override;
   void read_table(Table &, const std::string &, const std::string &, double);

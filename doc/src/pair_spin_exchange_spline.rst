@@ -127,8 +127,13 @@ boundary condition.
 
 For distances shorter than the first point of the table,
 :math:`J(r)` is extrapolated linearly with the slope at the first
-point.  At the end of each run, LAMMPS prints a warning with the number
-of pair distances for which this happened.  If this occurs often, the
+point.  At the end of each run, LAMMPS prints one warning for each
+*pair_coeff* command (table keyword and atom types) for which this
+happened, with the number of pair distances below the start of the
+table.  This number is the sum over all timesteps of the run (including
+the setup at the start of the run) of the number of atom pairs that are
+closer than the first table point, so the same two atoms are counted
+again at every timestep they stay this close.  If this occurs often, the
 table should start at a shorter distance.
 
 .. note::

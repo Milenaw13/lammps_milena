@@ -156,6 +156,7 @@ OPT.
    * :doc:`sph/rho/atom <compute_sph_rho_atom>`
    * :doc:`sph/t/atom <compute_sph_t_atom>`
    * :doc:`spin <compute_spin>`
+   * :doc:`spin/heat/current <compute_spin_heat_current>`
    * :doc:`spin/heat/flux <compute_spin_heat_flux>`
    * :doc:`stress/atom <compute_stress_atom>`
    * :doc:`stress/cartesian <compute_stress_cartesian>`

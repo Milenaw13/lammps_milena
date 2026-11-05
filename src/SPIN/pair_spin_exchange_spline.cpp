@@ -392,6 +392,27 @@ void PairSpinExchangeSpline::exchange_J(int itype, int jtype, double r, double &
       (-(3.0 * a * a - 1.0) * tb.J2[k] + (3.0 * b * b - 1.0) * tb.J2[k + 1]) * h / 6.0;
 }
 
+/* ----------------------------------------------------------------------
+   half of the mechanical force on atom i due to the exchange with atom j,
+   subtracted from fi as in compute(): fi -= 1/2 dJ/dr (s_i.s_j [- 1]) eij,
+   eij = (x_j - x_i)/r_ij, independent of lattice_flag
+   used by compute spin/heat/current
+------------------------------------------------------------------------- */
+
+void PairSpinExchangeSpline::compute_exchange_mech(int i, int j, double rsq, double eij[3],
+                                                   double fi[3], double spi[3], double spj[3])
+{
+  double Jex, dJex;
+  exchange_J(atom->type[i], atom->type[j], sqrt(rsq), Jex, dJex);
+
+  double sdots = spi[0] * spj[0] + spi[1] * spj[1] + spi[2] * spj[2];
+  if (e_offset) sdots -= 1.0;
+
+  fi[0] -= 0.5 * dJex * sdots * eij[0];
+  fi[1] -= 0.5 * dJex * sdots * eij[1];
+  fi[2] -= 0.5 * dJex * sdots * eij[2];
+}
+
 /* ---------------------------------------------------------------------- */
 
 void PairSpinExchangeSpline::compute(int eflag, int vflag)

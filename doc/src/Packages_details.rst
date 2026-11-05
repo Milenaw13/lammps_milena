@@ -3051,6 +3051,7 @@ the usual manner via MD.  Various pair, fix, and compute styles.
 * :doc:`fix langevin/spin <fix_langevin_spin>`
 * :doc:`fix precession/spin <fix_precession_spin>`
 * :doc:`compute spin <compute_spin>`
+* :doc:`compute spin/heat/current <compute_spin_heat_current>`
 * :doc:`compute spin/heat/flux <compute_spin_heat_flux>`
 * :doc:`neb/spin <neb_spin>`
 * ``examples/SPIN``

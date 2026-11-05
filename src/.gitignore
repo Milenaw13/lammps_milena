@@ -393,6 +393,8 @@
 /compute_spin.h
 /compute_spin_heat_flux.cpp
 /compute_spin_heat_flux.h
+/compute_spin_heat_current.cpp
+/compute_spin_heat_current.h
 /fix_langevin_spin.cpp
 /fix_langevin_spin.h
 /fix_neb_spin.cpp

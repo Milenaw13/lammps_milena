@@ -41,6 +41,11 @@ class PairSpinExchangeSpline : public PairSpin {
 
   void exchange_J(int, int, double, double &, double &);
 
+  // half of the mechanical exchange force on atom i (as in compute()), added to fi,
+  // with eij = (x_j - x_i)/r_ij; same interface as PairSpinExchange
+
+  void compute_exchange_mech(int, int, double, double *, double *, double *, double *);
+
   double cut_spin_exchange_global;    // global exchange cutoff distance
 
  protected:

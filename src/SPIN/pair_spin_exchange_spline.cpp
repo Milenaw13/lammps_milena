@@ -93,6 +93,13 @@ void PairSpinExchangeSpline::settings(int narg, char **arg)
 /* ----------------------------------------------------------------------
    set coeffs for one or more type spin pairs
    pair_coeff I J exchange rc file keyword [offset yes/no]
+     arg[0], arg[1] = atom types I, J (wildcards allowed)
+     arg[2]         = "exchange" (same syntax as pair style spin/exchange)
+     arg[3]         = cutoff rc for this type pair (<= pair_style cutoff)
+     arg[4], arg[5] = table file and keyword of the section to use
+     arg[6], arg[7] = optional "offset yes/no"
+   -> narg = 6 or 8; with hybrid/overlay the sub-style name is removed
+      before this function is called
 ------------------------------------------------------------------------- */
 
 void PairSpinExchangeSpline::coeff(int narg, char **arg)

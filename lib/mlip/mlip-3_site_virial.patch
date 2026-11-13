@@ -1,0 +1,54 @@
+diff --git a/src/external/interface.cpp b/src/external/interface.cpp
+index f70d514..4b65e28 100644
+--- a/src/external/interface.cpp
++++ b/src/external/interface.cpp
+@@ -161,6 +161,49 @@ void MLIP_CalcCfgForLammps( void* p_void_mlip,      // a pointer to mlip_wrapper
+                 cfg.ghost_inds.insert(i);
+ 
+         MLIP_wrp->Process(cfg);
++
++        // Per-atom (centroid) virial for the many-body heat current
++        // (Fan et al., PRB 92, 094301 (2015); LAMMPS centroid/stress/atom).
++        // For the site energy U_i of local atom i and each neighbour j
++        // (local or ghost), with d = x_j - x_i and D = dU_i/dx_j:
++        //     W_j += (x_i - x_j) (x) D = -d (x) D
++        // 9 components in LAMMPS order xx yy zz xy xz yz yx zx zy.
++        // Ghost entries are summed into their owners by the reverse
++        // communication of compute centroid/stress/atom (newton on).
++        // site_virial must have 9 columns and nlocal+nghost rows.
++        if (site_virial != nullptr)
++        {
++            AnyLocalMLIP* p_mlip = (AnyLocalMLIP*)MLIP_wrp->p_mlip;
++
++            for (int ii = 0; ii < inum; ii++)
++            {
++                Neighborhood& nbh = cfg.nbhs[ii];
++                if (nbh.count == 0) continue;
++
++                p_mlip->CalcSiteEnergyDers(nbh);
++
++                for (int jj = 0; jj < nbh.count; jj++)
++                {
++                    const int j = nbh.inds[jj];
++                    const double dx = nbh.vecs[jj][0];
++                    const double dy = nbh.vecs[jj][1];
++                    const double dz = nbh.vecs[jj][2];
++                    const double gx = p_mlip->buff_site_energy_ders_[jj][0];
++                    const double gy = p_mlip->buff_site_energy_ders_[jj][1];
++                    const double gz = p_mlip->buff_site_energy_ders_[jj][2];
++
++                    site_virial[j][0] -= dx * gx;   // xx
++                    site_virial[j][1] -= dy * gy;   // yy
++                    site_virial[j][2] -= dz * gz;   // zz
++                    site_virial[j][3] -= dx * gy;   // xy
++                    site_virial[j][4] -= dx * gz;   // xz
++                    site_virial[j][5] -= dy * gz;   // yz
++                    site_virial[j][6] -= dy * gx;   // yx
++                    site_virial[j][7] -= dz * gx;   // zx
++                    site_virial[j][8] -= dz * gy;   // zy
++                }
++            }
++        }
+             if (site_en != nullptr)
+                 if (MLIP_wrp->p_mlip != nullptr)
+                     for (int i=0; i<cfg.nbhs.size(); i++)

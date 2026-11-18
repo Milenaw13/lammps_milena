@@ -488,8 +488,12 @@ void FixNVESpin::ComputeInteractionsSpin(int i)
   }
 
   // update langevin damping and random force
+  // keep the conservative precession vector for the bath energy tally
 
   if (maglangevin_flag) {               // mag. langevin
+    fmcons[0] = fmi[0];
+    fmcons[1] = fmi[1];
+    fmcons[2] = fmi[2];
     for (int k = 0; k < nlangspin; k++) {
       locklangevinspin[k]->compute_single_langevin(i,spi,fmi);
     }
@@ -632,7 +636,7 @@ void FixNVESpin::AdvanceSingleSpin(int i)
 
   if (maglangevin_flag)
     for (int k = 0; k < nlangspin; k++)
-      locklangevinspin[k]->tally_spin_update(i,sold,sp[i]);
+      locklangevinspin[k]->tally_spin_update(i,fmcons,sold,sp[i],dts);
 
   // renormalization (check if necessary)
 

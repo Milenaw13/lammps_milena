@@ -74,7 +74,6 @@ FixLangevinSpin::FixLangevinSpin(LAMMPS *lmp, int narg, char **arg) :
 
   energy = 0.0;
   energy_avg[0] = energy_avg[1] = 0.0;
-  ilast = -1;
 
   if (alpha_t < 0.0) {
     error->all(FLERR,"Illegal langevin/spin command");
@@ -191,64 +190,52 @@ void FixLangevinSpin::add_temperature(double fmi[3])
 void FixLangevinSpin::compute_single_langevin(int i, double spi[3], double fmi[3])
 {
   int *mask = atom->mask;
-  ilast = -1;
   if (mask[i] & groupbit) {
-    if (tallyflag) {
-      ilast = i;
-      fmlast[0] = fmi[0];
-      fmlast[1] = fmi[1];
-      fmlast[2] = fmi[2];
-      tally_average(spi,fmi);
-    }
     if (tdamp_flag) add_tdamping(spi,fmi);
     if (temp_flag) add_temperature(fmi);
   }
 }
 
 /* ----------------------------------------------------------------------
-   tally the energy removed from spin i by the bath in the spin update that
-   follows compute_single_langevin(i), called by fix nve/spin with the spin
-   before (sold) and after (snew) the update.
-   The energy of spin i is -hbar fm.s, with fm its conservative precession
-   vector (rad/ps) saved in compute_single_langevin(). The update rotates s
-   around the total vector (conservative + damping + random field); the
-   conservative part alone keeps fm.s constant, so the change of the spin
-   energy, -hbar fm.(snew - sold), is the energy exchanged with the bath.
-   This is exact for interactions linear in each spin (exchange, DMI, Zeeman)
-   and holds to first order in the step otherwise.
-------------------------------------------------------------------------- */
-
-void FixLangevinSpin::tally_spin_update(int i, double *sold, double *snew)
-{
-  if (!tallyflag || (i != ilast)) return;
-
-  const double hbar = force->hplanck/MY_2PI;    // eV/(rad.THz)
-  energy += hbar*(fmlast[0]*(snew[0] - sold[0]) + fmlast[1]*(snew[1] - sold[1]) +
-                  fmlast[2]*(snew[2] - sold[2]));
-  ilast = -1;
-}
-
-/* ----------------------------------------------------------------------
-   average power exchanged with the bath during one spin update of length
-   dts, given s and the conservative precession vector fm (rad/ps):
+   tally the energy removed from spin i by the bath in one spin update of
+   length step, called by fix nve/spin after the update with the spin
+   before (sold) and after (snew) it, and with fm the conservative
+   precession vector (rad/ps, without damping and random field) used for
+   the update: at sold (sequential update of single spins) or at the
+   midpoint of sold and snew (midpoint integrator).
+   The energy of the spins changes by -hbar fm.(snew - sold): exactly for
+   interactions linear in each spin (sequential) or quadratic in the spins
+   (midpoint: the gradient at the midpoint gives the exact difference),
+   to first order in the step otherwise. The update rotates s around the
+   total vector (conservative + damping + random field); the conservative
+   part alone conserves this energy, so the change is the energy exchanged
+   with the bath.
+   In addition, the expected exchange from the average power, given s and
+   fm (damping part [0] and random field part [1]):
      P = alpha/(1+alpha^2) [2 kB T s.fm - hbar |s x fm|^2]
-   damping part [0] and random field part [1], tallied as energy REMOVED
-   from the spins. Their sum agrees with the exact tally on average, but
-   misses the work of the actual random field, so it diffuses away from it.
+   Its sum agrees with the exact tally on average, but misses the work of
+   the actual random field, so it diffuses away from it.
+   All tallied as energy REMOVED from the spins (fix langevin convention).
 ------------------------------------------------------------------------- */
 
-void FixLangevinSpin::tally_average(double spi[3], double fmi[3])
+void FixLangevinSpin::tally_spin_update(int i, const double *fm, const double *sold,
+                                        const double *snew, double step)
 {
+  if (!tallyflag || !(atom->mask[i] & groupbit)) return;
+
   const double hbar = force->hplanck/MY_2PI;    // eV/(rad.THz)
   const double kb = force->boltz;               // eV/K
-  const double pref = alpha_t*gil_factor*dts;
 
-  const double cpx = fmi[1]*spi[2] - fmi[2]*spi[1];
-  const double cpy = fmi[2]*spi[0] - fmi[0]*spi[2];
-  const double cpz = fmi[0]*spi[1] - fmi[1]*spi[0];
-  const double sdotf = spi[0]*fmi[0] + spi[1]*fmi[1] + spi[2]*fmi[2];
+  energy += hbar*(fm[0]*(snew[0] - sold[0]) + fm[1]*(snew[1] - sold[1]) +
+                  fm[2]*(snew[2] - sold[2]));
 
-  energy_avg[0] += pref*hbar*(cpx*cpx + cpy*cpy + cpz*cpz);
+  const double pref = alpha_t*gil_factor*step;
+  const double cpx = fm[1]*sold[2] - fm[2]*sold[1];
+  const double cpy = fm[2]*sold[0] - fm[0]*sold[2];
+  const double cpz = fm[0]*sold[1] - fm[1]*sold[0];
+  const double sdotf = sold[0]*fm[0] + sold[1]*fm[1] + sold[2]*fm[2];
+
+  if (tdamp_flag) energy_avg[0] += pref*hbar*(cpx*cpx + cpy*cpy + cpz*cpz);
   if (temp_flag) energy_avg[1] -= pref*2.0*kb*temp*sdotf;
 }
 

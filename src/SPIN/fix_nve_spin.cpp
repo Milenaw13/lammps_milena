@@ -66,7 +66,7 @@ FixNVESpin::FixNVESpin(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
   pair(nullptr), spin_pairs(nullptr), locklangevinspin(nullptr),
   locksetforcespin(nullptr), lockprecessionspin(nullptr),
-  sp_old(nullptr), sp_new(nullptr), noise(nullptr),
+  sp_old(nullptr), sp_new(nullptr), noise(nullptr), fm_mid(nullptr),
   rsec(nullptr), stack_head(nullptr), stack_foot(nullptr),
   backward_stacks(nullptr), forward_stacks(nullptr)
 {
@@ -177,6 +177,7 @@ FixNVESpin::~FixNVESpin()
   memory->destroy(sp_old);
   memory->destroy(sp_new);
   memory->destroy(noise);
+  memory->destroy(fm_mid);
   delete [] spin_pairs;
   delete [] locklangevinspin;
   delete [] lockprecessionspin;
@@ -845,6 +846,7 @@ void FixNVESpin::MidpointSpinStep(double h)
     memory->grow(sp_old,nmid_max,3,"nve/spin:sp_old");
     memory->grow(sp_new,nmid_max,3,"nve/spin:sp_new");
     memory->destroy(noise);
+    if (fm_mid) memory->grow(fm_mid,nmid_max,3,"nve/spin:fm_mid");
   }
 
   // random fields of fix langevin/spin: drawn once per spin and step and kept
@@ -852,6 +854,14 @@ void FixNVESpin::MidpointSpinStep(double h)
   //   corresponds to the Stratonovich interpretation of the stochastic equation
   //   (Garcia-Palacios and Lazaro, Phys Rev B 58, 14937 (1998)), as in the
   //   midpoint schemes of Mentink et al., J Phys Condens Matter 22, 176001 (2010)
+
+  // conservative fields for the energy tally of fix langevin/spin
+
+  int tally = 0;
+  if (maglangevin_flag)
+    for (int k = 0; k < nlangspin; k++)
+      if (locklangevinspin[k]->tallyflag) tally = 1;
+  if (tally && !fm_mid) memory->create(fm_mid,nmid_max,3,"nve/spin:fm_mid");
 
   if (maglangevin_flag) {
     if (!noise) memory->create(noise,nmid_max,3*nlangspin,"nve/spin:noise");
@@ -883,6 +893,11 @@ void FixNVESpin::MidpointSpinStep(double h)
     for (int i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
         ComputeInteractionsSpin(i);
+        if (tally) {
+          fm_mid[i][0] = fmcons[0];
+          fm_mid[i][1] = fmcons[1];
+          fm_mid[i][2] = fmcons[2];
+        }
         RotateSpin(sp_old[i],fm[i],h,g);
         for (int k = 0; k < 3; k++) {
           resid = MAX(resid,fabs(g[k] - sp_new[i][k]));
@@ -920,6 +935,16 @@ void FixNVESpin::MidpointSpinStep(double h)
     sp[i][1] = sp_new[i][1];
     sp[i][2] = sp_new[i][2];
   }
+
+  // energy exchanged with the spin baths (fix langevin/spin tally yes):
+  //   the field of the last iteration is the one at the midpoints of the
+  //   previous iterate, i.e. at the midpoints of the step when converged
+
+  if (tally)
+    for (int i = 0; i < nlocal; i++)
+      if (mask[i] & groupbit)
+        for (int k = 0; k < nlangspin; k++)
+          locklangevinspin[k]->tally_spin_update(i,fm_mid[i],sp_old[i],sp_new[i],h);
 
   nevals_step += nevals;
   resid_local = resid;
@@ -1016,5 +1041,8 @@ double FixNVESpin::memory_usage()
 {
   double bytes = (double) nlocal_max * 2 * sizeof(int);     // backward_stacks + forward_stacks
   bytes += (double) nsectors * 2 * sizeof(int);             // stack_head + stack_foot
+  bytes += (double) nmid_max * 6 * sizeof(double);          // sp_old + sp_new
+  if (noise) bytes += (double) nmid_max * 3 * nlangspin * sizeof(double);
+  if (fm_mid) bytes += (double) nmid_max * 3 * sizeof(double);
   return bytes;
 }

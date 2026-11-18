@@ -100,7 +100,11 @@ exchanged with the bath during the update is
 This is exact for interactions that are linear in each spin (e.g. pair
 styles *spin/exchange*, *spin/dmi* and the Zeeman term of
 :doc:`fix precession/spin <fix_precession_spin>`), and holds to first
-order in the timestep otherwise.  It is the spin equivalent of the
+order in the timestep otherwise.  With the *midpoint* integrator of
+:doc:`fix nve/spin <fix_nve_spin>`, all spins are updated at once and
+:math:`\vec{\omega}_{i}` is evaluated at the midpoints of the spins
+before and after the update; the tally is then exact for spin energies
+that are quadratic in the spins, when the iterations are converged.  It is the spin equivalent of the
 *tally* keyword of :doc:`fix langevin <fix_langevin>`: the sum of the
 total energy and of the tallies of all thermostats (thermo keyword
 *econserve*) is conserved up to the integration error.

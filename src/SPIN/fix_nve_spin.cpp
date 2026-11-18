@@ -596,7 +596,11 @@ void FixNVESpin::AdvanceSingleSpin(int i)
   double **sp = atom->sp;
   double **fm = atom->fm;
   double fm2,energy,dts2;
-  double cp[3],g[3];
+  double cp[3],g[3],sold[3];
+
+  sold[0] = sp[i][0];
+  sold[1] = sp[i][1];
+  sold[2] = sp[i][2];
 
   cp[0] = cp[1] = cp[2] = 0.0;
   g[0] = g[1] = g[2] = 0.0;
@@ -623,6 +627,12 @@ void FixNVESpin::AdvanceSingleSpin(int i)
   sp[i][0] = g[0];
   sp[i][1] = g[1];
   sp[i][2] = g[2];
+
+  // energy exchanged with the spin baths (fix langevin/spin tally yes)
+
+  if (maglangevin_flag)
+    for (int k = 0; k < nlangspin; k++)
+      locklangevinspin[k]->tally_spin_update(i,sold,sp[i]);
 
   // renormalization (check if necessary)
 

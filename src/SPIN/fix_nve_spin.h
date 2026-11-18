@@ -73,6 +73,8 @@ class FixNVESpin : public Fix {
 
   int nlangspin;
   class FixLangevinSpin **locklangevinspin;
+  double fmcons[3];    // conservative precession vector of the last spin in
+                       // ComputeInteractionsSpin() (fix langevin/spin tally)
 
   // pointers to fix setforce/spin styles
 

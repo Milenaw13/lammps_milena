@@ -27,6 +27,7 @@ namespace LAMMPS_NS {
 class FixLangevinSpin : public Fix {
  public:
   int tdamp_flag, temp_flag;    // damping and temperature flags
+  int tallyflag;                // 1 if energy exchange with the bath is tallied
 
   FixLangevinSpin(class LAMMPS *, int, char **);
   ~FixLangevinSpin() override;
@@ -36,6 +37,9 @@ class FixLangevinSpin : public Fix {
   void add_tdamping(double *, double *);    // add transverse damping
   void add_temperature(double[3]);
   void compute_single_langevin(int, double *, double *);
+  void tally_spin_update(int, const double *, const double *, const double *, double);
+  double compute_scalar() override;
+  double compute_vector(int) override;
 
   // random field drawn once per spin update of length step (fix nve/spin midpoint)
 
@@ -48,6 +52,10 @@ class FixLangevinSpin : public Fix {
   double temp;          // spin bath temperature
   double D, sigma;      // bath intensity var.
   double gil_factor;    // gilbert's prefactor
+
+  double energy;             // cumulative energy removed from the local spins
+  double energy_avg[2];      // same, from the average power of the damping [0]
+                             // and of the random field [1]
 
   int nlevels_respa;
   class RanMars *random;

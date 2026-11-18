@@ -593,8 +593,12 @@ void FixNVESpin::ComputeInteractionsSpin(int i)
   }
 
   // update langevin damping and random force
+  // keep the conservative precession vector for the bath energy tally
 
   if (maglangevin_flag) {               // mag. langevin
+    fmcons[0] = fmi[0];
+    fmcons[1] = fmi[1];
+    fmcons[2] = fmi[2];
     if (integrator == MIDPOINT) {
       for (int k = 0; k < nlangspin; k++)
         locklangevinspin[k]->compute_single_langevin_noise(i,spi,fmi,&noise[i][3*k]);
@@ -776,13 +780,23 @@ void FixNVESpin::AdvanceSingleSpin(int i)
   int *sametag = atom->sametag;
   double **sp = atom->sp;
   double **fm = atom->fm;
-  double g[3];
+  double g[3],sold[3];
+
+  sold[0] = sp[i][0];
+  sold[1] = sp[i][1];
+  sold[2] = sp[i][2];
 
   RotateSpin(sp[i],fm[i],dts,g);
 
   sp[i][0] = g[0];
   sp[i][1] = g[1];
   sp[i][2] = g[2];
+
+  // energy exchanged with the spin baths (fix langevin/spin tally yes)
+
+  if (maglangevin_flag)
+    for (int k = 0; k < nlangspin; k++)
+      locklangevinspin[k]->tally_spin_update(i,fmcons,sold,sp[i],dts);
 
   // comm. sp[i] to atoms with same tag (periodic images on this proc)
   // needed for the serial algo, and for the sectoring algo in directions

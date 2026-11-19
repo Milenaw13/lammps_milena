@@ -46,11 +46,34 @@ using namespace MathConst;
 FixLangevinSpin::FixLangevinSpin(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg), random(nullptr)
 {
-  if (narg != 6) error->all(FLERR,"Illegal langevin/spin command");
+  if (narg < 6) utils::missing_cmd_args(FLERR, "fix langevin/spin", error);
+
+  scalar_flag = 1;
+  vector_flag = 1;
+  size_vector = 2;
+  global_freq = 1;
+  extscalar = 1;
+  extvector = 1;
+  ecouple_flag = 1;
 
   temp = utils::numeric(FLERR,arg[3],false,lmp);
   alpha_t = utils::numeric(FLERR,arg[4],false,lmp);
   seed = utils::inumeric(FLERR,arg[5],false,lmp);
+
+  // optional keywords
+
+  tallyflag = 0;
+  int iarg = 6;
+  while (iarg < narg) {
+    if (strcmp(arg[iarg], "tally") == 0) {
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix langevin/spin tally", error);
+      tallyflag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
+      iarg += 2;
+    } else error->all(FLERR, iarg, "Unknown fix langevin/spin keyword: {}", arg[iarg]);
+  }
+
+  energy = 0.0;
+  energy_avg[0] = energy_avg[1] = 0.0;
 
   if (alpha_t < 0.0) {
     error->all(FLERR,"Illegal langevin/spin command");
@@ -210,4 +233,74 @@ void FixLangevinSpin::compute_single_langevin_noise(int i, double spi[3], double
       fmi[2] *= gil_factor;
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   tally the energy removed from spin i by the bath in one spin update of
+   length step, called by fix nve/spin after the update with the spin
+   before (sold) and after (snew) it, and with fm the conservative
+   precession vector (rad/ps, without damping and random field) used for
+   the update: at sold (sequential update of single spins) or at the
+   midpoint of sold and snew (midpoint integrator).
+   The energy of the spins changes by -hbar fm.(snew - sold): exactly for
+   interactions linear in each spin (sequential) or quadratic in the spins
+   (midpoint: the gradient at the midpoint gives the exact difference),
+   to first order in the step otherwise. The update rotates s around the
+   total vector (conservative + damping + random field); the conservative
+   part alone conserves this energy, so the change is the energy exchanged
+   with the bath.
+   In addition, the expected exchange from the average power, given s and
+   fm (damping part [0] and random field part [1]):
+     P = alpha/(1+alpha^2) [2 kB T s.fm - hbar |s x fm|^2]
+   Its sum agrees with the exact tally on average, but misses the work of
+   the actual random field, so it diffuses away from it.
+   All tallied as energy REMOVED from the spins (fix langevin convention).
+------------------------------------------------------------------------- */
+
+void FixLangevinSpin::tally_spin_update(int i, const double *fm, const double *sold,
+                                        const double *snew, double step)
+{
+  if (!tallyflag || !(atom->mask[i] & groupbit)) return;
+
+  const double hbar = force->hplanck/MY_2PI;    // eV/(rad.THz)
+  const double kb = force->boltz;               // eV/K
+
+  energy += hbar*(fm[0]*(snew[0] - sold[0]) + fm[1]*(snew[1] - sold[1]) +
+                  fm[2]*(snew[2] - sold[2]));
+
+  const double pref = alpha_t*gil_factor*step;
+  const double cpx = fm[1]*sold[2] - fm[2]*sold[1];
+  const double cpy = fm[2]*sold[0] - fm[0]*sold[2];
+  const double cpz = fm[0]*sold[1] - fm[1]*sold[0];
+  const double sdotf = sold[0]*fm[0] + sold[1]*fm[1] + sold[2]*fm[2];
+
+  if (tdamp_flag) energy_avg[0] += pref*hbar*(cpx*cpx + cpy*cpy + cpz*cpz);
+  if (temp_flag) energy_avg[1] -= pref*2.0*kb*temp*sdotf;
+}
+
+/* ----------------------------------------------------------------------
+   cumulative energy removed from the spins of the group by the bath
+------------------------------------------------------------------------- */
+
+double FixLangevinSpin::compute_scalar()
+{
+  if (!tallyflag) return 0.0;
+
+  double energy_all = 0.0;
+  MPI_Allreduce(&energy, &energy_all, 1, MPI_DOUBLE, MPI_SUM, world);
+  return energy_all;
+}
+
+/* ----------------------------------------------------------------------
+   cumulative energy removed from the spins from the average power of the
+   damping (n = 0) and of the random field (n = 1)
+------------------------------------------------------------------------- */
+
+double FixLangevinSpin::compute_vector(int n)
+{
+  if (!tallyflag) return 0.0;
+
+  double energy_all = 0.0;
+  MPI_Allreduce(&energy_avg[n], &energy_all, 1, MPI_DOUBLE, MPI_SUM, world);
+  return energy_all;
 }

@@ -1,0 +1,90 @@
+# Check C: free B2 FeRh cluster with spins: MTP + spin/exchange/spline, fix nve/spin
+# (-var integ midpoint|sequential). Identity: dG/dt = J(heat/flux, centroid) + J_prec.
+# Exact identity: dG/dt = J with G = sum_i x_i (ke_i + pe_i),
+# J = sum_i e_i v_i - sum_i S_i v_i  (compute heat/flux).
+units           metal
+boundary        f f f
+atom_style      spin
+atom_modify     map array
+# -var start build (create atoms, write cluster_start.data) | read (cluster_start_ref.data)
+variable        start index build
+jump            SELF start_${start}
+label           start_build
+lattice         custom 3.00 a1 1 0 0 a2 0 1 0 a3 0 0 1 basis 0 0 0 basis 0.5 0.5 0.5
+region          box block -8 12 -8 12 -8 12
+region          clus block 0 4 0 4 0 4
+create_box      3 box
+create_atoms    1 region clus basis 1 1 basis 2 2
+mass            1 55.845
+mass            2 102.906
+mass            3 55.845
+group           fe type 1
+# Fe1/Fe2 sublattices (user convention: odd n = i^2+j^2+k^2 -> Fe1-Fe2 = types 1-3)
+variable        ft atom 1+2*(round(x/3.0+y/3.0+z/3.0)%2)
+set             group fe type v_ft
+set             group all spin/atom/random 31415 2.2
+pair_style      hybrid/overlay mlip load_from=pot.mtp spin/exchange/spline 7.0
+pair_coeff      * * mlip
+pair_coeff      1 1 spin/exchange/spline exchange 7.0 J_FeRh.table FE_FE offset yes
+pair_coeff      1 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_UR offset yes
+pair_coeff      3 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_FE offset yes
+pair_coeff      1 2 spin/exchange/spline exchange 7.0 J_FeRh.table FE_RH offset yes
+pair_coeff      2 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_RH offset yes
+velocity        all create 800 8765 mom yes rot yes dist gaussian
+write_data      cluster_start.data
+jump            SELF afterstart
+label           start_read
+read_data       cluster_start_ref.data
+pair_style      hybrid/overlay mlip load_from=pot.mtp spin/exchange/spline 7.0
+pair_coeff      * * mlip
+pair_coeff      1 1 spin/exchange/spline exchange 7.0 J_FeRh.table FE_FE offset yes
+pair_coeff      1 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_UR offset yes
+pair_coeff      3 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_FE offset yes
+pair_coeff      1 2 spin/exchange/spline exchange 7.0 J_FeRh.table FE_RH offset yes
+pair_coeff      2 3 spin/exchange/spline exchange 7.0 J_FeRh.table FE_RH offset yes
+label           afterstart
+variable        dt index 0.0002
+timestep        ${dt}
+variable        integ index midpoint
+if "${integ} == midpoint" then &
+  "fix nve all nve/spin lattice moving integrator midpoint iterations 20 tol 1.0e-12" &
+else &
+  "fix nve all nve/spin lattice moving"
+compute         hc  all spin/heat/current
+compute         ke  all ke/atom
+compute         pe  all pe/atom
+compute         sa  all stress/atom NULL virial
+compute         csa all centroid/stress/atom NULL virial
+compute         hfc all heat/flux ke pe csa
+compute         hfs all heat/flux ke pe sa
+variable        e   atom c_ke+c_pe
+variable        gx  atom x*v_e
+variable        gy  atom y*v_e
+variable        gz  atom z*v_e
+compute         G   all reduce sum v_gx v_gy v_gz c_pe
+variable        pesum equal c_G[4]
+thermo_style    custom step temp pe etotal v_pesum
+thermo          100
+group           t1 type 1
+group           t2 type 2
+group           t3 type 3
+variable        X1x equal xcm(t1,x)*count(t1)
+variable        X1y equal xcm(t1,y)*count(t1)
+variable        X1z equal xcm(t1,z)*count(t1)
+variable        X2x equal xcm(t2,x)*count(t2)
+variable        X2y equal xcm(t2,y)*count(t2)
+variable        X2z equal xcm(t2,z)*count(t2)
+variable        X3x equal xcm(t3,x)*count(t3)
+variable        X3y equal xcm(t3,y)*count(t3)
+variable        X3z equal xcm(t3,z)*count(t3)
+variable        V1x equal vcm(t1,x)*count(t1)
+variable        V1y equal vcm(t1,y)*count(t1)
+variable        V1z equal vcm(t1,z)*count(t1)
+variable        V2x equal vcm(t2,x)*count(t2)
+variable        V2y equal vcm(t2,y)*count(t2)
+variable        V2z equal vcm(t2,z)*count(t2)
+variable        V3x equal vcm(t3,x)*count(t3)
+variable        V3y equal vcm(t3,y)*count(t3)
+variable        V3z equal vcm(t3,z)*count(t3)
+fix             out all print 1 "$(step) $(c_G[1]:%.15e) $(c_G[2]:%.15e) $(c_G[3]:%.15e) $(c_hfc[1]:%.15e) $(c_hfc[2]:%.15e) $(c_hfc[3]:%.15e) $(c_hfs[1]:%.15e) $(c_hfs[2]:%.15e) $(c_hfs[3]:%.15e) $(c_hfc[4]:%.15e) $(c_hfc[5]:%.15e) $(c_hfc[6]:%.15e) $(c_hc[1]:%.15e) $(c_hc[2]:%.15e) $(c_hc[3]:%.15e) $(v_X1x:%.15e) $(v_X1y:%.15e) $(v_X1z:%.15e) $(v_X2x:%.15e) $(v_X2y:%.15e) $(v_X2z:%.15e) $(v_X3x:%.15e) $(v_X3y:%.15e) $(v_X3z:%.15e) $(v_V1x:%.15e) $(v_V1y:%.15e) $(v_V1z:%.15e) $(v_V2x:%.15e) $(v_V2y:%.15e) $(v_V2z:%.15e) $(v_V3x:%.15e) $(v_V3y:%.15e) $(v_V3z:%.15e)" file clusterspin_${tag}.dat screen no title "# step Gx Gy Gz Jcentroid(xyz) Jstressatom(xyz) Jconv(xyz) Jprec(xyz) X1..3(xyz) V1..3(xyz)"
+run             ${nrun}

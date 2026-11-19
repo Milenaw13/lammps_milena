@@ -1,0 +1,52 @@
+# Check A: periodic B2 FeRh, MTP only. Per-atom virials must sum to the global virial.
+units           metal
+boundary        p p p
+atom_style      atomic
+atom_modify     map array
+lattice         custom 3.00 a1 1 0 0 a2 0 1 0 a3 0 0 1 basis 0 0 0 basis 0.5 0.5 0.5
+region          box block 0 5 0 5 0 5
+create_box      3 box
+create_atoms    1 box basis 1 1 basis 2 2
+mass            1 55.845
+mass            2 102.906
+mass            3 55.845
+# a few Fe as type 3 (down sublattice label) to exercise all species
+set             group all type/fraction 3 0.2 4321 
+group           rh type 2
+set             group rh type 2
+displace_atoms  all random 0.15 0.15 0.15 12345
+pair_style      mlip load_from=pot.mtp
+pair_coeff      * *
+compute         sa  all stress/atom NULL virial
+compute         csa all centroid/stress/atom NULL virial
+compute         ssa all reduce sum c_sa[1] c_sa[2] c_sa[3] c_sa[4] c_sa[5] c_sa[6]
+compute         scsa all reduce sum c_csa[1] c_csa[2] c_csa[3] c_csa[4] c_csa[5] c_csa[6] c_csa[7] c_csa[8] c_csa[9]
+compute         pv all pressure NULL virial
+variable        V equal vol
+variable        g1 equal -c_pv[1]*v_V
+variable        g2 equal -c_pv[2]*v_V
+variable        g3 equal -c_pv[3]*v_V
+variable        g4 equal -c_pv[4]*v_V
+variable        g5 equal -c_pv[5]*v_V
+variable        g6 equal -c_pv[6]*v_V
+thermo_style    custom step pe v_g1 v_g2 v_g3 v_g4 v_g5 v_g6
+thermo_modify   format float %20.12e
+run 0
+print "GLOBAL  ${g1} ${g2} ${g3} ${g4} ${g5} ${g6}"
+variable a1 equal c_ssa[1]
+variable a2 equal c_ssa[2]
+variable a3 equal c_ssa[3]
+variable a4 equal c_ssa[4]
+variable a5 equal c_ssa[5]
+variable a6 equal c_ssa[6]
+print "STRESSATOM ${a1} ${a2} ${a3} ${a4} ${a5} ${a6}"
+variable c1 equal c_scsa[1]
+variable c2 equal c_scsa[2]
+variable c3 equal c_scsa[3]
+variable c4 equal c_scsa[4]
+variable c5 equal c_scsa[5]
+variable c6 equal c_scsa[6]
+variable c7 equal c_scsa[7]
+variable c8 equal c_scsa[8]
+variable c9 equal c_scsa[9]
+print "CENTROID ${c1} ${c2} ${c3} ${c4} ${c5} ${c6} ${c7} ${c8} ${c9}"

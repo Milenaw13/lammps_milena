@@ -37,6 +37,11 @@ class FixLangevinSpin : public Fix {
   void add_temperature(double[3]);
   void compute_single_langevin(int, double *, double *);
 
+  // random field drawn once per spin update of length step (fix nve/spin midpoint)
+
+  void draw_noise(int, double, double *);
+  void compute_single_langevin_noise(int, double *, double *, const double *);
+
  protected:
   double alpha_t;       // transverse mag. damping
   double dts;           // magnetic timestep

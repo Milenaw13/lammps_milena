@@ -104,6 +104,7 @@ alphak
 alphashrink
 Alvares
 amap
+Amar
 Amatrix
 AMD
 amino
@@ -1439,6 +1440,7 @@ ganzenmueller
 Ganzenmuller
 Gao
 Gapsys
+Garcia
 Garg
 gasses
 Gathert
@@ -1604,6 +1606,7 @@ gzip
 gzipped
 Haak
 Hafskjold
+Hairer
 halfstepback
 halgren
 Hallil
@@ -1640,11 +1643,17 @@ hg
 Iglesias
 inviscid
 Jaumann
+Lazaro
 Liedekerke
 Lok
+Lubich
 Macia
+Mentink
 Meshfree
+Modin
+Palacios
 parametrization
+Rasing
 Richtmyer
 runner
 RUNNER
@@ -3217,6 +3226,7 @@ Pedone
 peID
 PEigenDense
 Peng
+pentane
 peptide
 peratom
 Perf
@@ -3867,6 +3877,7 @@ Shenderova
 Sherrill
 Shi
 Shiga
+Shim
 Shimoyama
 Shinoda
 Shiomi
@@ -4037,6 +4048,7 @@ Straatsma
 Strachan
 Stratford
 Strathclyde
+Stratonovich
 Straub
 strcmp
 streitz
@@ -4492,6 +4504,7 @@ vel
 Velázquez
 Ventura
 venv
+Verdier
 Verlag
 verlet
 Verlet
@@ -4588,6 +4601,7 @@ Wallenius
 wallstyle
 walltime
 Waltham
+Wanner
 Waroquier
 Wataru
 wavepacket
@@ -4669,6 +4683,7 @@ xlat
 xlattice
 xlcg
 xldamp
+xlguard
 xlkappa
 xlmd
 xlo

@@ -172,3 +172,42 @@ void FixLangevinSpin::compute_single_langevin(int i, double spi[3], double fmi[3
     if (temp_flag) add_temperature(fmi);
   }
 }
+
+/* ----------------------------------------------------------------------
+   draw the random field of spin i for a spin update of length step,
+   which is then kept fixed during the update (fix nve/spin midpoint).
+   The field is constant during the update, so its integral (a rotation
+   angle) has the variance sigma^2 step^2 = 2 D step^2 with D ~ 1/step:
+   sigma was set for a step of dts, so it is scaled by sqrt(dts/step).
+   Zero for atoms not in the group.
+------------------------------------------------------------------------- */
+
+void FixLangevinSpin::draw_noise(int i, double step, double *noise)
+{
+  noise[0] = noise[1] = noise[2] = 0.0;
+  if (!temp_flag || !(atom->mask[i] & groupbit)) return;
+  const double amp = sigma * sqrt(dts / step);
+  noise[0] = amp * random->gaussian();
+  noise[1] = amp * random->gaussian();
+  noise[2] = amp * random->gaussian();
+}
+
+/* ----------------------------------------------------------------------
+   same as compute_single_langevin(), with a given random field
+------------------------------------------------------------------------- */
+
+void FixLangevinSpin::compute_single_langevin_noise(int i, double spi[3], double fmi[3],
+                                                    const double *noise)
+{
+  if (atom->mask[i] & groupbit) {
+    if (tdamp_flag) add_tdamping(spi,fmi);
+    if (temp_flag) {
+      fmi[0] += noise[0];
+      fmi[1] += noise[1];
+      fmi[2] += noise[2];
+      fmi[0] *= gil_factor;
+      fmi[1] *= gil_factor;
+      fmi[2] *= gil_factor;
+    }
+  }
+}

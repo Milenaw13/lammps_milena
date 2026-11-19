@@ -159,15 +159,16 @@ double PairSpinExchange::init_one(int i, int j)
 }
 
 /* ----------------------------------------------------------------------
-   extract the larger cutoff, or the per type pair cutoffs (used by
-   compute spin/heat/flux)
+   extract the larger cutoff, or the per-type cutoffs if "cut_spin"
+   (used by fix nve/spin) or "cut_spin_exchange" (used by compute
+   spin/heat/flux and compute spin/heat/current)
 ------------------------------------------------------------------------- */
 
 void *PairSpinExchange::extract(const char *str, int &dim)
 {
   dim = 0;
   if (strcmp(str,"cut") == 0) return (void *) &cut_spin_exchange_global;
-  if (strcmp(str,"cut_spin_exchange") == 0) {
+  if ((strcmp(str,"cut_spin") == 0) || (strcmp(str,"cut_spin_exchange") == 0)) {
     dim = 2;
     return (void *) cut_spin_exchange;
   }

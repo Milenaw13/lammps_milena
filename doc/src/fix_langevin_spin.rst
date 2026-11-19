@@ -68,6 +68,11 @@ generate its own unique seed and its own stream of random numbers.
 Thus the dynamics of the system will not be identical on two runs on
 different numbers of processors.
 
+With the *integrator midpoint* option of :doc:`fix nve/spin
+<fix_nve_spin>`, the random vector of each spin is drawn once per spin
+update and kept fixed during the iterations of the implicit midpoint
+rule; see the :doc:`fix nve/spin <fix_nve_spin>` page.
+
 ----------
 
 Restart, fix_modify, output, run start/stop, minimize info
